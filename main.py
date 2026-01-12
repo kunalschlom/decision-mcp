@@ -50,11 +50,11 @@ async def decide(user_input: str, data: dict | None = None):
     # HEALTH FLOW
     # ----------------------------
     if domain == "health":
-        async with HEALTH_MCP as client:  
-            await client.call_tool("add_health_data", data)  # Fixed: removed curly braces
+         
+            await HEALTH_MCP.call_tool("add_health_data", data)  # Fixed: removed curly braces
 
-            signal = await client.call_tool(
-                "generate_signal",
+            signal = await HEALTH_MCP.call_tool(
+                "health_signal",
                 {"date": data.get("date", today)}
             )
 
@@ -94,20 +94,20 @@ async def decide(user_input: str, data: dict | None = None):
     # GLOBAL SUMMARY
     # ----------------------------
     if domain == "summary":
-        async with HEALTH_MCP as client:
-            health = await client.call_tool(
-                "generate_signal",
+       
+        health = await HEALTH_MCP.call_tool(
+                "health_signal",
                 {"date": today}
             )
 
-        async with PRODUCTIVITY_MCP as client:
-            productivity = await client.call_tool(
+
+        productivity = await PRODUCTIVITY_MCP.call_tool(
                 "summary",
                 {}
             )
 
-        async with COGNITIVE_MCP as client:
-            cognitive = await client.call_tool(
+       
+        cognitive = await COGNITIVE_MCP.call_tool(
                 "cognitive_signal_",
                 {"date": today}
             )
@@ -127,4 +127,4 @@ async def decide(user_input: str, data: dict | None = None):
 
 
 if __name__ == "__main__":
-    mcp.run(transport="sse",port=8005,host="0.0.0.0")
+    mcp.run(transport="http",port=8005,host="0.0.0.0")
