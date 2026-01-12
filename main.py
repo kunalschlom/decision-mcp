@@ -127,4 +127,4 @@ async def decide(user_input: str, data: dict | None = None):
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="http",port=8005,host="0.0.0.0")
