@@ -36,11 +36,12 @@ def detect_domain(text: str) -> str:
 # SINGLE USER ENTRYPOINT
 # ----------------------------
 @mcp.tool
-async def decide(user_input: str, data: dict = {}):
+async def decide(user_input: str, data: dict | None=None):
     """
     The ONLY tool the user ever calls.
     """
-
+    if data is None:
+        data={}
     domain = detect_domain(user_input)
     today = datetime.today().strftime("%Y-%m-%d")
 
