@@ -1,8 +1,9 @@
 from fastmcp import FastMCP, Client
 from datetime import datetime
 import os
+from contextlib import AsyncExitStack
 
-# ----------------------------
+#-------------
 # Remote MCP Clients
 # ----------------------------
 HEALTH_MCP = Client("https://romantic-black-camel.fastmcp.app/mcp")
@@ -37,21 +38,22 @@ def detect_domain(text: str) -> str:
 # ----------------------------
 @mcp.tool
 async def decide(user_input: str, data: dict | None = None):
-    """
-    The ONLY tool the user ever calls.
-    """
     if data is None:
         data = {}
-    
+
     domain = detect_domain(user_input)
     today = datetime.today().strftime("%Y-%m-%d")
 
-    # ----------------------------
-    # HEALTH FLOW
-    # ----------------------------
-    if domain == "health":
-         
-            await HEALTH_MCP.call_tool("add_health_data", data)  # Fixed: removed curly braces
+    async with AsyncExitStack() as stack:
+        await stack.enter_async_context(HEALTH_MCP)
+        await stack.enter_async_context(PRODUCTIVITY_MCP)
+        await stack.enter_async_context(COGNITIVE_MCP)
+
+        # ----------------------------
+        # HEALTH FLOW
+        # ----------------------------
+        if domain == "health":
+            await HEALTH_MCP.call_tool("add_health_data", data)
 
             signal = await HEALTH_MCP.call_tool(
                 "health_signal",
@@ -63,67 +65,62 @@ async def decide(user_input: str, data: dict | None = None):
                 "signal": signal
             }
 
-    # ----------------------------
-    # PRODUCTIVITY FLOW
-    # ----------------------------
-    if domain == "productivity":
-        signal = await PRODUCTIVITY_MCP.call_tool("summary", data)
+        # ----------------------------
+        # PRODUCTIVITY FLOW
+        # ----------------------------
+        if domain == "productivity":
+            signal = await PRODUCTIVITY_MCP.call_tool("summary", data)
 
-        return {
-            "handled_by": "productivity_mcp",
-            "signal": signal
-        }
+            return {
+                "handled_by": "productivity_mcp",
+                "signal": signal
+            }
 
-    # ----------------------------
-    # COGNITIVE FLOW
-    # ----------------------------
-    if domain == "cognitive":
-        await COGNITIVE_MCP.call_tool("add_data", data)  # Fixed: changed call to call_tool
+        # ----------------------------
+        # COGNITIVE FLOW
+        # ----------------------------
+        if domain == "cognitive":
+            await COGNITIVE_MCP.call_tool("add_data", data)
 
-        signal = await COGNITIVE_MCP.call_tool(  # Fixed: changed call to call_tool
-            "cognitive_signal_",
-            {"date": data.get("date", today)}
-        )
+            signal = await COGNITIVE_MCP.call_tool(
+                "cognitive_signal_",
+                {"date": data.get("date", today)}
+            )
 
-        return {
-            "handled_by": "cognitive_mcp",
-            "signal": signal
-        }
+            return {
+                "handled_by": "cognitive_mcp",
+                "signal": signal
+            }
 
-    # ----------------------------
-    # GLOBAL SUMMARY
-    # ----------------------------
-    if domain == "summary":
-       
-        health = await HEALTH_MCP.call_tool(
+        # ----------------------------
+        # GLOBAL SUMMARY
+        # ----------------------------
+        if domain == "summary":
+            health = await HEALTH_MCP.call_tool(
                 "health_signal",
                 {"date": today}
             )
 
+            productivity = await PRODUCTIVITY_MCP.call_tool("summary", {})
 
-        productivity = await PRODUCTIVITY_MCP.call_tool(
-                "summary",
-                {}
-            )
-
-       
-        cognitive = await COGNITIVE_MCP.call_tool(
+            cognitive = await COGNITIVE_MCP.call_tool(
                 "cognitive_signal_",
                 {"date": today}
             )
 
+            return {
+                "date": today,
+                "health": health,
+                "productivity": productivity,
+                "cognitive": cognitive,
+                "final_decision": "Aggregated by Decision MCP"
+            }
+
         return {
-            "date": today,
-            "health": health,
-            "productivity": productivity,
-            "cognitive": cognitive,
-            "final_decision": "Aggregated by Decision MCP"
+            "error": "Intent not recognized",
+            "hint": "Provide health, productivity, cognitive data, or ask for summary"
         }
 
-    return {
-        "error": "Intent not recognized",
-        "hint": "Provide health, productivity, cognitive data, or ask for summary"
-    }
 
 
 if __name__ == "__main__":
