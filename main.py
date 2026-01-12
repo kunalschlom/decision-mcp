@@ -36,12 +36,13 @@ def detect_domain(text: str) -> str:
 # SINGLE USER ENTRYPOINT
 # ----------------------------
 @mcp.tool
-async def decide(user_input: str, data: dict | None=None):
+async def decide(user_input: str, data: dict | None = None):
     """
     The ONLY tool the user ever calls.
     """
     if data is None:
-        data={}
+        data = {}
+    
     domain = detect_domain(user_input)
     today = datetime.today().strftime("%Y-%m-%d")
 
@@ -49,18 +50,18 @@ async def decide(user_input: str, data: dict | None=None):
     # HEALTH FLOW
     # ----------------------------
     if domain == "health":
-       async with HEALTH_MCP as client:  
-        await client.call_tool("add_health_data", {data})
+        async with HEALTH_MCP as client:  
+            await client.call_tool("add_health_data", data)  # Fixed: removed curly braces
 
-        signal = await client.call_tool(
-            "generate_signal",
-            {"date": data.get("date", today)}
-        )
+            signal = await client.call_tool(
+                "generate_signal",
+                {"date": data.get("date", today)}
+            )
 
-        return {
-            "handled_by": "health_mcp",
-            "signal": signal
-        }
+            return {
+                "handled_by": "health_mcp",
+                "signal": signal
+            }
 
     # ----------------------------
     # PRODUCTIVITY FLOW
@@ -77,9 +78,9 @@ async def decide(user_input: str, data: dict | None=None):
     # COGNITIVE FLOW
     # ----------------------------
     if domain == "cognitive":
-        await COGNITIVE_MCP.call("add_data", data)
+        await COGNITIVE_MCP.call_tool("add_data", data)  # Fixed: changed call to call_tool
 
-        signal = await COGNITIVE_MCP.call(
+        signal = await COGNITIVE_MCP.call_tool(  # Fixed: changed call to call_tool
             "cognitive_signal_",
             {"date": data.get("date", today)}
         )
@@ -93,20 +94,23 @@ async def decide(user_input: str, data: dict | None=None):
     # GLOBAL SUMMARY
     # ----------------------------
     if domain == "summary":
-        health = await HEALTH_MCP.call(
-            "generate_signal",
-            {"date": today}
-        )
+        async with HEALTH_MCP as client:
+            health = await client.call_tool(
+                "generate_signal",
+                {"date": today}
+            )
 
-        productivity = await PRODUCTIVITY_MCP.call(
-            "summary",
-            {}
-        )
+        async with PRODUCTIVITY_MCP as client:
+            productivity = await client.call_tool(
+                "summary",
+                {}
+            )
 
-        cognitive = await COGNITIVE_MCP.call(
-            "cognitive_signal_",
-            {"date": today}
-        )
+        async with COGNITIVE_MCP as client:
+            cognitive = await client.call_tool(
+                "cognitive_signal_",
+                {"date": today}
+            )
 
         return {
             "date": today,
